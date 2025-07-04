@@ -1,0 +1,114 @@
+# 多端口访问配置示例
+# 使用方法：复制此文件为 docker-compose.yml 并根据需要修改
+
+services:
+  # Nginx 反向代理 - 监听多个端口
+  nginx-proxy:
+    image: nginxproxy/nginx-proxy
+    container_name: nginx-proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8060:8060"  # 添加 8060 端口
+      - "9000:9000"  # 添加 9000 端口
+      # 可以根据需要添加更多端口
+      # - "8080:8080"
+      # - "3000:3000"
+    volumes:
+      - /etc/nginx/certs
+      - /etc/nginx/vhost.d
+      - acme:/usr/share/nginx/html
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./certs:/etc/nginx/certs:ro
+
+  # Let's Encrypt 证书管理
+  letsencrypt:
+    image: nginxproxy/acme-companion
+    container_name: nginx-proxy-le
+    restart: always
+    depends_on:
+      - nginx-proxy
+    environment:
+      - NGINX_PROXY_CONTAINER=nginx-proxy 
+      - DEFAULT_EMAIL=${DEFAULT_EMAIL}
+      - DEFAULT_RENEW=${DEFAULT_RENEW:-30}
+      - CERTS_UPDATE_INTERVAL=${CERTS_UPDATE_INTERVAL:-3600}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./certs:/etc/nginx/certs
+      - /etc/nginx/vhost.d
+      - acme:/usr/share/nginx/html
+
+  # 主服务 (端口 80)
+  main-app:
+    image: nginx
+    container_name: main-app
+    restart: always
+    expose:
+      - "80"
+    environment:
+      - VIRTUAL_HOST=${VIRTUAL_HOST}
+      - VIRTUAL_PORT=80
+      - LETSENCRYPT_HOST=${LETSENCRYPT_HOST}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+
+  # API 服务 (端口 8060)
+  api-service:
+    image: your-api-image
+    container_name: api-service
+    restart: always
+    expose:
+      - "8060"
+    environment:
+      - VIRTUAL_HOST=${VIRTUAL_HOST}
+      - VIRTUAL_PORT=8060
+      - LETSENCRYPT_HOST=${LETSENCRYPT_HOST}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+
+  # 管理后台 (端口 9000)
+  admin-panel:
+    image: your-admin-image
+    container_name: admin-panel
+    restart: always
+    expose:
+      - "9000"
+    environment:
+      - VIRTUAL_HOST=${VIRTUAL_HOST}
+      - VIRTUAL_PORT=9000
+      - LETSENCRYPT_HOST=${LETSENCRYPT_HOST}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+
+  # 数据库服务 (直接暴露，不通过 nginx-proxy)
+  database:
+    image: mysql:8.0
+    container_name: database
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  acme:
+  db_data:
+
+# 使用说明：
+# 1. 复制此文件为 docker-compose.yml
+# 2. 修改镜像名称和配置
+# 3. 确保 .env 文件包含必要的环境变量
+# 4. 确保服务器防火墙和云服务商安全组开放相应端口
+# 5. 启动服务：docker compose up -d
+#
+# 访问方式：
+# - 主服务：https://your-domain.com/ (443端口)
+# - API服务：https://your-domain.com:8060/ (8060端口)
+# - 管理后台：https://your-domain.com:9000/ (9000端口)
+# - 数据库：your-domain.com:3306 (3306端口，非HTTPS)
+#
+# 注意：这是推荐的多端口访问方案，简单直接，便于管理 
