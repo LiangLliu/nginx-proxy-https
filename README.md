@@ -30,11 +30,21 @@
 ./manage.sh help           # 显示帮助
 ```
 
+## 🔧 HTTPS 管理脚本
+
+```bash
+./fix-https.sh             # 修复所有域名的证书软链接
+./test-https.sh            # 测试所有域名的 HTTPS 功能
+```
+
 ## 📁 项目结构
 
 ```
 nginx-proxy-https/
 ├── manage.sh              # 统一管理脚本
+├── fix-https.sh           # HTTPS 证书修复脚本
+├── test-https.sh          # HTTPS 功能测试脚本
+├── common.sh              # 公共函数库
 ├── docker-compose.yml     # 服务配置（用户配置）
 ├── docker-compose.example.yml # 配置示例
 ├── env.example            # 环境变量模板
@@ -53,8 +63,7 @@ DEFAULT_RENEW=30                      # 证书续签阈值（天）
 CERTS_UPDATE_INTERVAL=3600            # 证书检查间隔（秒）
 ```
 
-### 服务配置 (docker-compose.yml)
-每个服务需要配置：
+### 单域名配置 (docker-compose.yml)
 ```yaml
 your-service:
   environment:
@@ -63,6 +72,54 @@ your-service:
     - LETSENCRYPT_HOST=your-domain.com # 证书域名
     - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
 ```
+
+### 多域名配置 (docker-compose-multi-domain.yml)
+```yaml
+# 后端 API 服务
+api-service:
+  environment:
+    - VIRTUAL_HOST=api.example.com
+    - VIRTUAL_PORT=8080
+    - LETSENCRYPT_HOST=api.example.com
+
+# 前端应用服务
+frontend-service:
+  environment:
+    - VIRTUAL_HOST=app.example.com
+    - VIRTUAL_PORT=80
+    - LETSENCRYPT_HOST=app.example.com
+
+# 管理面板服务
+admin-service:
+  environment:
+    - VIRTUAL_HOST=admin.example.com
+    - VIRTUAL_PORT=3000
+    - LETSENCRYPT_HOST=admin.example.com
+```
+
+## 🚀 多域名管理
+
+### 自动检测和修复
+脚本会自动检测 `docker-compose.yml` 中配置的所有域名：
+
+```bash
+# 修复所有域名的证书
+./fix-https.sh
+
+# 测试所有域名的 HTTPS 功能
+./test-https.sh
+```
+
+### 智能健康检查
+- **自动发现**：从配置文件自动提取 VIRTUAL_HOST 域名
+- **智能策略**：优先检查 `/actuator/health`，fallback 到根路径 `/`
+- **并行检查**：同时检查多个服务的健康状态
+- **高效验证**：每5秒检查一次，最多等待120秒
+
+### 公共函数库
+- `common.sh` 包含可复用的通用函数
+- `extract_domains()` 自动从 docker-compose.yml 提取域名
+- 所有脚本通过 `source` 引用公共函数，便于维护
 
 ## 🌐 DNS 配置
 
@@ -109,6 +166,8 @@ admin.your-domain.com  A    YOUR_SERVER_IP
 - 查看完整状态：`./manage.sh monitor`
 - 检查DNS配置：`./manage.sh dns-check`
 - 查看服务日志：`./manage.sh logs`
+- 修复HTTPS证书：`./fix-https.sh`
+- 测试HTTPS功能：`./test-https.sh`
 
 ## 🔗 相关项目
 
