@@ -1,6 +1,6 @@
 # Nginx Proxy HTTPS
 
-基于 Docker Compose 的 Nginx 反向代理解决方案，支持自动申请和续签 Let's Encrypt SSL 证书。
+基于 [nginx-proxy](https://github.com/nginx-proxy/nginx-proxy) 和 [acme-companion](https://github.com/nginx-proxy/acme-companion) 的 Docker Compose 解决方案，支持自动申请和续签 Let's Encrypt SSL 证书。
 
 ## 🚀 快速开始
 
@@ -64,6 +64,40 @@ your-service:
     - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
 ```
 
+## 🌐 DNS 配置
+
+### 方式一：通配符记录（推荐）
+在您的 DNS 管理平台添加一条 A 记录：
+```
+*.your-domain.com    A    YOUR_SERVER_IP
+```
+
+### 方式二：单独记录
+为每个子域名添加 A 记录：
+```
+api.your-domain.com    A    YOUR_SERVER_IP
+app.your-domain.com    A    YOUR_SERVER_IP
+admin.your-domain.com  A    YOUR_SERVER_IP
+```
+
+### 检查 DNS 配置
+```bash
+./manage.sh dns-check
+```
+
+## 🔧 技术架构
+
+### 核心组件
+- **nginx-proxy**: 自动发现 Docker 容器并配置反向代理
+- **acme-companion**: 自动申请和续签 Let's Encrypt SSL 证书
+- **Docker Compose**: 容器编排和管理
+
+### 工作原理
+1. nginx-proxy 监听 Docker 事件，自动发现带有 `VIRTUAL_HOST` 环境变量的容器
+2. acme-companion 为每个 `LETSENCRYPT_HOST` 自动申请 SSL 证书
+3. 证书自动续签，无需手动干预
+4. 所有服务通过 HTTPS 访问，证书完全自动化管理
+
 ## 🌐 访问方式
 
 - 所有服务通过 HTTPS 访问：`https://your-domain.com`
@@ -74,4 +108,9 @@ your-service:
 
 - 查看完整状态：`./manage.sh monitor`
 - 检查DNS配置：`./manage.sh dns-check`
-- 查看服务日志：`./manage.sh logs` 
+- 查看服务日志：`./manage.sh logs`
+
+## 🔗 相关项目
+
+- [nginx-proxy](https://github.com/nginx-proxy/nginx-proxy) - 自动 Docker 反向代理
+- [acme-companion](https://github.com/nginx-proxy/acme-companion) - Let's Encrypt 证书管理 
